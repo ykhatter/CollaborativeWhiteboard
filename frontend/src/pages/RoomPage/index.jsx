@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import WhiteBoard from "../../components/WhiteBoard";
+import WhiteBoard from "../../components/WhiteBoard/index.jsx";
 import "./index.css";
 
 const RoomPage = ({user, socket}) => {
