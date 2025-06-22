@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import './index.css';
+import { useNavigate } from 'react-router-dom';
 
-const CreateRoomForm = () => {
+const CreateRoomForm = ({uuid, socket, setUser}) => {
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-
+  const navigate = useNavigate();
   const generateRoomCode = () => {
     const code = Math.random().toString(36).substr(2, 6).toUpperCase();
     setRoomCode(code);
@@ -15,9 +16,21 @@ const CreateRoomForm = () => {
     alert('Room code copied!');
   };
 
-  const createRoom = () => {
+  const createRoom = (e) => {
+    console.log("Creating room");
+    e.preventDefault();
     if (!name || !roomCode) return alert('Please fill in all fields.');
-    console.log(`Creating room: Name=${name}, Code=${roomCode}`);
+    const roomData = {
+      name,
+      roomCode,
+      userId: uuid,
+      presenter: true,
+      host: true,
+    };
+    setUser(roomData);
+    navigate(`/${roomCode}`);
+    console.log(roomData);
+    socket.emit('userJoined', roomData);
   };
 
   return (

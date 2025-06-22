@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import './index.css';
+import { useNavigate } from 'react-router-dom';
 
-const JoinRoomForm = () => {
+const JoinRoomForm = ({uuid, socket, setUser}) => {
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState('');
+  const navigate = useNavigate();
 
-  const joinRoom = () => {
+  const joinRoom = (e) => {
+    e.preventDefault();
     if (!name || !roomCode) return alert('Please fill in all fields.');
-    console.log(`Joining room: Name=${name}, Code=${roomCode}`);
+    const roomData = {
+      name,
+      roomCode,
+      userId: uuid,
+      presenter: false,
+      host: false,
+    };
+    setUser(roomData);
+    navigate(`/${roomCode}`);
+    socket.emit('userJoined', roomData);
   };
 
   return (
