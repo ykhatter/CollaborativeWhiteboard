@@ -5,7 +5,7 @@ import './App.css';
 import { io } from 'socket.io-client';
 import { useState, useEffect } from 'react';
 
-const server = 'http://localhost:5000';
+const server = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 const connectionOptions = {
   "force new connection": true,
   reconnectionAttempts: Infinity,
