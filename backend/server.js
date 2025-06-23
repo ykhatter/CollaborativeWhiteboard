@@ -45,14 +45,8 @@ io.on("connection", (socket)=>{
         // Send confirmation to user
         socket.emit("userIsJoined", { success: true });
         
-        // Fetch existing elements from DB and send to the new user
-        try {
-            const { rows } = await db.query(`SELECT element_data FROM elements WHERE room_code = $1 AND is_undone = 0 ORDER BY id ASC`, [roomCode]);
-            const elements = rows.map(row => JSON.parse(row.element_data));
-            socket.emit("roomState", { elements, history: [] });
-        } catch (err) {
-            console.error("Failed to fetch elements:", err);
-        }
+        // No more fetching elements from DB, just send empty state
+        socket.emit("roomState", { elements: [], history: [] });
         
         // Broadcast user joined to all users in room
         socket.to(roomCode).emit("userJoined", { userId, name, presenter, host });
@@ -70,88 +64,22 @@ io.on("connection", (socket)=>{
     });
     
     // Handle drawing events
-    socket.on("drawElement", async (data) => {
+    socket.on("drawElement", (data) => {
         const { roomCode, element } = data;
-        
-        const elementJson = JSON.stringify(element);
-        try {
-            // Clear redo history by deleting undone elements
-            await db.query(`DELETE FROM elements WHERE room_code = $1 AND is_undone = 1`, [roomCode]);
-            await db.query(`INSERT INTO elements (room_code, element_data) VALUES ($1, $2)`, [roomCode, elementJson]);
-            console.log("Broadcasting elementDrawn to room:", roomCode);
-            socket.to(roomCode).emit("elementDrawn", element);
-        } catch (err) {
-            console.error("Failed to save element:", err);
-        }
+        // Just broadcast to others in the room
+        socket.to(roomCode).emit("elementDrawn", element);
     });
     
-    // Element updates are not persisted, only broadcasted
+    // Element updates are only broadcasted
     socket.on("updateElement", (data) => {
         const { roomCode, index, element } = data;
         socket.to(roomCode).emit("elementUpdated", { index, element });
     });
     
-    // Handle undo
-    socket.on("undo", async (data) => {
-        const { roomCode } = data;
-        try {
-            // Find the last active element and mark it as undone
-            const { rowCount } = await db.query(`
-                UPDATE elements 
-                SET is_undone = 1 
-                WHERE id = (
-                    SELECT id FROM elements 
-                    WHERE room_code = $1 AND is_undone = 0 
-                    ORDER BY id DESC 
-                    LIMIT 1
-                )`, [roomCode]);
-
-            if (rowCount > 0) {
-                // Refetch and broadcast the new state
-                const { rows } = await db.query(`SELECT element_data FROM elements WHERE room_code = $1 AND is_undone = 0 ORDER BY id ASC`, [roomCode]);
-                const elements = rows.map(row => JSON.parse(row.element_data));
-                io.to(roomCode).emit("roomState", { elements, history: [] });
-            }
-        } catch (err) {
-            console.error("Failed to undo element:", err);
-        }
-    });
-    
-    // Handle redo
-    socket.on("redo", async (data) => {
-        const { roomCode } = data;
-        try {
-            // Find the last undone element and mark it as active
-            const { rowCount } = await db.query(`
-                UPDATE elements 
-                SET is_undone = 0 
-                WHERE id = (
-                    SELECT id FROM elements 
-                    WHERE room_code = $1 AND is_undone = 1 
-                    ORDER BY id DESC 
-                    LIMIT 1
-                )`, [roomCode]);
-
-            if (rowCount > 0) {
-                // Refetch and broadcast the new state
-                const { rows } = await db.query(`SELECT element_data FROM elements WHERE room_code = $1 AND is_undone = 0 ORDER BY id ASC`, [roomCode]);
-                const elements = rows.map(row => JSON.parse(row.element_data));
-                io.to(roomCode).emit("roomState", { elements, history: [] });
-            }
-        } catch (err) {
-            console.error("Failed to redo element:", err);
-        }
-    });
-    
-    // Handle clear
-    socket.on("clear", async (data) => {
-        const { roomCode } = data;
-        try {
-            await db.query(`DELETE FROM elements WHERE room_code = $1`, [roomCode]);
-            io.to(roomCode).emit("boardCleared");
-        } catch (err) {
-            console.error("Failed to clear board:", err);
-        }
+    // Handle board state updates (undo/redo/clear) from presenter
+    socket.on("boardStateUpdate", (data) => {
+        const { roomCode, elements, history } = data;
+        socket.to(roomCode).emit("boardStateUpdate", { elements, history });
     });
     
     // Handle disconnection

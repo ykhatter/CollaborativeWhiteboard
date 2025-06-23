@@ -70,24 +70,10 @@ const WhiteBoard = ({ tool, color, user, socket, roomCode }) => {
       });
     });
 
-    // Listen for undo events from other users
-    socket.on("elementUndone", ({ element }) => {
-      console.log("Received undo event from server", element);
-      setElements(prev => prev.slice(0, -1));
-      setHistory(prev => [...prev, element]);
-    });
-
-    // Listen for redo events from other users
-    socket.on("elementRedone", ({ element }) => {
-      console.log("Received redo event from server", element);
-      setHistory(prev => prev.slice(0, -1));
-      setElements(prev => [...prev, element]);
-    });
-
-    // Listen for clear events from other users
-    socket.on("boardCleared", () => {
-      setElements([]);
-      setHistory([]);
+    // Listen for board state updates (undo/redo/clear)
+    socket.on("boardStateUpdate", ({ elements: newElements, history: newHistory }) => {
+      setElements(newElements);
+      setHistory(newHistory);
     });
 
     // Listen for initial room state
@@ -96,53 +82,55 @@ const WhiteBoard = ({ tool, color, user, socket, roomCode }) => {
       setHistory(roomHistory);
     });
 
+    // Listen for clear events from other users (legacy, for safety)
+    socket.on("boardCleared", () => {
+      setElements([]);
+      setHistory([]);
+    });
+
     return () => {
       socket.off("elementDrawn");
       socket.off("elementUpdated");
-      socket.off("elementUndone");
-      socket.off("elementRedone");
-      socket.off("boardCleared");
+      socket.off("boardStateUpdate");
       socket.off("roomState");
+      socket.off("boardCleared");
     };
   }, [socket]);
 
+  // Undo/Redo/Clear logic is now fully local, but broadcasts state to others
   useEffect(() => {
     const undoHandler = () => {
       if (elements.length === 0) return;
-      console.log("Local undo triggered");
       const newElements = [...elements];
       const popped = newElements.pop();
+      const newHistory = [...history, popped];
       setElements(newElements);
-      setHistory((prev) => [...prev, popped]);
-      
-      // Emit undo event to server
+      setHistory(newHistory);
+      // Broadcast new state
       if (socket && user?.presenter) {
-        console.log("Emitting undo to server");
-        socket.emit("undo", { roomCode });
+        socket.emit("boardStateUpdate", { roomCode, elements: newElements, history: newHistory });
       }
     };
 
     const redoHandler = () => {
       if (history.length === 0) return;
-      console.log("Local redo triggered");
       const restored = history[history.length - 1];
-      setHistory((prev) => prev.slice(0, -1));
-      setElements((prev) => [...prev, restored]);
-      
-      // Emit redo event to server
+      const newHistory = history.slice(0, -1);
+      const newElements = [...elements, restored];
+      setHistory(newHistory);
+      setElements(newElements);
+      // Broadcast new state
       if (socket && user?.presenter) {
-        console.log("Emitting redo to server");
-        socket.emit("redo", { roomCode });
+        socket.emit("boardStateUpdate", { roomCode, elements: newElements, history: newHistory });
       }
     };
 
     const clearHandler = () => {
       setElements([]);
       setHistory([]);
-      
-      // Emit clear event to server
+      // Broadcast new state
       if (socket && user?.presenter) {
-        socket.emit("clear", { roomCode });
+        socket.emit("boardStateUpdate", { roomCode, elements: [], history: [] });
       }
     };
 
