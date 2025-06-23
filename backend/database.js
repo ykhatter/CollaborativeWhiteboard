@@ -12,7 +12,9 @@ const createSchema = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS rooms (
         id SERIAL PRIMARY KEY,
-        code TEXT UNIQUE NOT NULL
+        code TEXT UNIQUE NOT NULL,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL
       )
     `);
     await client.query(`

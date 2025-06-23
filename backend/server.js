@@ -33,7 +33,7 @@ io.on("connection", (socket)=>{
         socket.join(roomCode);
         
         // Ensure room exists in DB, if not, create it
-        await db.query(`INSERT INTO rooms (code) VALUES ($1) ON CONFLICT (code) DO NOTHING`, [roomCode]);
+        await db.query(`INSERT INTO rooms (code, user_id, user_name) VALUES ($1, $2, $3) ON CONFLICT (code) DO NOTHING`, [roomCode, userId, name]);
         
         // Add user to in-memory store for the room
         if (!roomUsers.has(roomCode)) {
