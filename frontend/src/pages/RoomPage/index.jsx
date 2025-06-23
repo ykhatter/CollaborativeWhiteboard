@@ -54,6 +54,7 @@ const RoomPage = ({user, socket}) => {
 
     // Listen for user list updates
     socket.on("userList", (userList) => {
+      console.log("Received userList:", userList);
       setUsers(userList);
     });
 
@@ -68,6 +69,12 @@ const RoomPage = ({user, socket}) => {
       console.log("User left:", leftUser.name);
       addNotification(`${leftUser.name} left the room`, 'leave');
     });
+
+    // Request user list refresh on mount
+    if (user && user.roomCode) {
+      console.log("Requesting user list refresh for room:", user.roomCode);
+      socket.emit("userJoined", user); // Re-emit join to trigger userList
+    }
 
     return () => {
       clearTimeout(timer);
@@ -204,8 +211,8 @@ const RoomPage = ({user, socket}) => {
           <h3>👥 Connected Users ({users.length})</h3>
           <ul>
             {users.length === 0 ? (
-              <li style={{ textAlign: 'center', fontStyle: 'italic', opacity: 0.7 }}>
-                No users connected yet...
+              <li style={{ textAlign: 'center', fontStyle: 'italic', opacity: 0.7, color: 'red' }}>
+                No users connected yet... (If you just joined, please wait a moment or refresh)
               </li>
             ) : (
               users.map((u, index) => (
